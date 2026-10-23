@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinsamer Craft (ศิลป์เสมอ คราฟต์) - TopUp & Monster Arena System</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Prompt & Kanit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        mcGold: '#FFAA00',
+                        mcRed: '#FF5555',
+                        mcGreen: '#55FF55',
+                        mcAqua: '#55FFFF',
+                        mcDarkSlate: '#0a0b10',
+                        mcCardBg: '#131520',
+                        mcBorder: '#232738'
+                    },
+                    fontFamily: {
+                        prompt: ['Prompt', 'sans-serif'],
+                        kanit: ['Kanit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #0a0b10;
+            color: #e2e8f0;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(239, 68, 68, 0.06) 0%, transparent 40%);
+        }
+
+        .mc-glow-gold { text-shadow: 0 0 12px rgba(255, 170, 0, 0.6); }
+        .mc-glow-red { text-shadow: 0 0 12px rgba(255, 85, 85, 0.6); }
+        .mc-box-glow { box-shadow: 0 0 25px rgba(245, 158, 11, 0.15); }
+        .truewallet-glow { box-shadow: 0 0 20px rgba(249, 115, 22, 0.25); }
+
+        /* Arena Grid styling */
+        .arena-grid {
+            display: grid;
+            grid-template-columns: repeat(11, minmax(0, 1fr));
+            gap: 2px;
+            background-color: #0d0e17;
+            padding: 8px;
+            border-radius: 12px;
+            border: 2px solid #232738;
+        }
+
+        .grid-cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+            position: relative;
+            user-select: none;
+        }
+
+        .grid-cell.arena-inner {
+            background-color: #161928;
+            border: 1px solid rgba(255, 170, 0, 0.2);
+        }
+
+        .grid-cell.arena-boundary {
+            background-color: rgba(239, 68, 68, 0.15);
+            border: 1px dashed rgba(239, 68, 68, 0.4);
+        }
+
+        .grid-cell.arena-center {
+            background-color: rgba(34, 197, 94, 0.25);
+            border: 1px solid #22c55e;
+        }
+
+        @keyframes vanishAnim {
+            0% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1); }
+            50% { transform: scale(1.2) translateY(-10px); opacity: 0.8; filter: brightness(2) drop-shadow(0 0 15px #ef4444); }
+            100% { transform: scale(0) translateY(50px); opacity: 0; filter: brightness(0); }
+        }
+
+        .vanish-effect {
+            animation: vanishAnim 0.4s forwards cubic-bezier(0.55, 0.085, 0.68, 0.53);
+        }
+
+        .pulse-gold {
+            animation: pulseGold 2s infinite;
+        }
+        @keyframes pulseGold {
+            0%, 100% { border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 10px rgba(245, 158, 11, 0.2); }
+            50% { border-color: rgba(245, 158, 11, 0.9); box-shadow: 0 0 20px rgba(245, 158, 11, 0.5); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header & Navigation -->
+    <header class="sticky top-0 z-50 bg-mcDarkSlate/90 backdrop-blur-md border-b border-mcBorder">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Logo -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('home')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-600 flex items-center justify-center text-xl font-bold text-black shadow-lg">
+                    🏰
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide font-kanit bg-gradient-to-r from-amber-400 via-orange-300 to-red-500 bg-clip-text text-transparent">
+                        SINSAMER CRAFT
+                    </h1>
+                    <p class="text-[11px] text-gray-400 font-kanit">นครศิลป์เสมอ Official Portal</p>
+                </div>
+            </div>
+
+            <!-- Header Balance & Scoreboard Widget -->
+            <div class="flex items-center space-x-3">
+                <!-- Wallet Balance Badge -->
+                <div class="bg-slate-900 border border-amber-500/40 px-3 py-1.5 rounded-xl flex items-center space-x-2">
+                    <i data-lucide="coins" class="w-4 h-4 text-amber-400"></i>
+                    <span id="navCoinsDisplay" class="font-bold text-amber-300 text-xs sm:text-sm font-mono">
+                        0 Coins
+                    </span>
+                </div>
+
+                <!-- Live Soul Scoreboard -->
+                <div class="hidden sm:flex bg-slate-900 border border-red-500/40 px-3 py-1.5 rounded-xl items-center space-x-2">
+                    <i data-lucide="ghost" class="w-4 h-4 text-red-400"></i>
+                    <span id="navSoulDisplay" class="font-bold text-red-400 text-xs sm:text-sm font-mono">
+                        §6[0] §cดวงวิญญาณ
+                    </span>
+                </div>
+
+                <button onclick="switchTab('topup')" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-black font-semibold text-xs transition-all shadow-md flex items-center space-x-1.5">
+                    <i data-lucide="wallet" class="w-3.5 h-3.5"></i>
+                    <span>เติมเงิน</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Bar -->
+        <nav class="bg-slate-950/80 border-t border-mcBorder">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-2 overflow-x-auto py-2 scrollbar-none">
+                <button onclick="switchTab('home')" id="tab-btn-home" class="tab-btn active px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2 whitespace-nowrap text-amber-400 bg-amber-500/10 border border-amber-500/30">
+                    <i data-lucide="home" class="w-4 h-4"></i>
+                    <span>หน้าหลัก</span>
+                </button>
+                <button onclick="switchTab('topup')" id="tab-btn-topup" class="tab-btn px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2 whitespace-nowrap text-gray-400 hover:text-amber-300 hover:bg-slate-800/60">
+                    <i data-lucide="credit-card" class="w-4 h-4"></i>
+                    <span>เติมเงิน TrueMoney</span>
+                </button>
+                <button onclick="switchTab('shop')" id="tab-btn-shop" class="tab-btn px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2 whitespace-nowrap text-gray-400 hover:text-amber-300 hover:bg-slate-800/60">
+                    <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                    <span>ร้านค้าเหรียญ & Soul Token</span>
+                </button>
+                <button onclick="switchTab('arena')" id="tab-btn-arena" class="tab-btn px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2 whitespace-nowrap text-gray-400 hover:text-amber-300 hover:bg-slate-800/60">
+                    <i data-lucide="swords" class="w-4 h-4"></i>
+                    <span>ลานปราบมอนสเตอร์ (11x14)</span>
+                </button>
+                <button onclick="switchTab('commands')" id="tab-btn-commands" class="tab-btn px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center space-x-2 whitespace-nowrap text-gray-400 hover:text-amber-300 hover:bg-slate-800/60">
+                    <i data-lucide="terminal" class="w-4 h-4"></i>
+                    <span>สูตร Command Block</span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ================= TAB 1: HOME ================= -->
+        <section id="tab-home" class="tab-content space-y-6">
+            <!-- Hero Banner -->
+            <div class="relative rounded-2xl overflow-hidden border border-amber-500/30 bg-gradient-to-r from-slate-950 via-purple-950/30 to-slate-950 p-6 sm:p-10 shadow-2xl">
+                <div class="relative z-10 max-w-3xl space-y-4">
+                    <div class="inline-flex items-center space-x-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full text-xs text-amber-400 font-medium">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                        <span>Minecraft Server นครศิลป์เสมอ</span>
+                    </div>
+                    <h2 class="text-3xl sm:text-5xl font-extrabold font-kanit tracking-tight text-white leading-tight">
+                        ระบบเติมเงิน & ลานปราบมอนสเตอร์ <br>
+                        <span class="bg-gradient-to-r from-amber-400 via-orange-400 to-red-500 bg-clip-text text-transparent">
+                            ศิลป์เสมอ คราฟต์ (Sinsamer Craft)
+                        </span>
+                    </h2>
+                    <p class="text-gray-300 text-xs sm:text-sm leading-relaxed">
+                        ยินดีต้อนรับสู่ระบบบริหารจัดการเซิร์ฟเวอร์นครศิลป์เสมอ เติมเงิน TrueMoney Wallet สะดวก รวดเร็ว พร้อมทดลองใช้งานลานปราบมอนสเตอร์ 11x14 บล็อก ที่ทำงานด้วย Command Block ปลอดภัย 100% ไร้มอนสเตอร์รบกวนในเมือง
+                    </p>
+
+                    <!-- Wallet Quick Card -->
+                    <div class="bg-slate-900/90 border border-orange-500/40 p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 truewallet-glow">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-lg bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-400 font-bold text-lg">
+                                📱
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">บัญชี TrueMoney Wallet ประจำเมือง</p>
+                                <p class="text-base font-extrabold font-mono text-amber-300">0923282312</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="copyToClipboard('0923282312', 'คัดลอกเบอร์ TrueMoney Wallet แล้ว!')" class="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-black font-bold text-xs flex items-center space-x-1">
+                                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                <span>คัดลอกเบอร์</span>
+                            </button>
+                            <button onclick="switchTab('topup')" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs flex items-center space-x-1">
+                                <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
+                                <span>ไปหน้าเติมเงิน</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 hover:border-amber-500/40 transition-all">
+                    <div class="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400 mb-3">
+                        <i data-lucide="wallet" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold font-kanit text-white mb-1">เติมเงิน TrueMoney Wallet</h3>
+                    <p class="text-xs text-gray-400">
+                        เติมเงินเข้าบัญชี <span class="text-amber-300 font-mono">0923282312</span> แจ้งสลิปเพื่อรับ Sinsamer Coins นำไปซื้อ Soul Token และไอเทมสุดพิเศษ
+                    </p>
+                </div>
+
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 hover:border-amber-500/40 transition-all">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
+                        <i data-lucide="shield" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold font-kanit text-white mb-1">ลานปราบมอนสเตอร์ 11x14</h3>
+                    <p class="text-xs text-gray-400">
+                        มอนสเตอร์เกิดเฉพาะในเขต 11x14 เมื่อผู้เล่นออกจากลาน มอนสเตอร์จะถูกวาร์ปหายไปใต้โลกทันที ปลอดภัยและไร้ร่องรอย
+                    </p>
+                </div>
+
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 hover:border-amber-500/40 transition-all">
+                    <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mb-3">
+                        <i data-lucide="ghost" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold font-kanit text-white mb-1">ระบบ Scoreboard วิญญาณ</h3>
+                    <p class="text-xs text-gray-400">
+                        แสดงผลแต้มวิญญาณรูปแบบ <code class="text-amber-300 font-mono">§6[คะแนน] §cดวงวิญญาณ</code> สะสมคะแนนจากการตีมอนสเตอร์เพื่อนำไปคราฟต์ของ
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: TOPUP SYSTEM ================= -->
+        <section id="tab-topup" class="tab-content hidden space-y-6">
+            <div class="bg-mcCardBg border border-mcBorder p-6 rounded-2xl">
+                <h2 class="text-2xl font-bold font-kanit text-white flex items-center gap-2">
+                    <i data-lucide="credit-card" class="w-6 h-6 text-orange-400"></i>
+                    <span>ระบบเติมเงิน TrueMoney Wallet (ศิลป์เสมอ คราฟต์)</span>
+                </h2>
+                <p class="text-xs text-gray-400 mt-1">
+                    เลือกแพ็กเกจ โอนเงินเข้าบัญชี TrueMoney Wallet แล้วแนบหลักฐานเพื่อรับ Sinsamer Coins
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Wallet Info & Package Selection (2 Cols) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Wallet Banner -->
+                    <div class="bg-gradient-to-r from-slate-900 via-orange-950/40 to-slate-900 border border-orange-500/40 p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 truewallet-glow">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-14 h-14 rounded-2xl bg-orange-500/20 border border-orange-500 flex items-center justify-center text-3xl">
+                                🍊
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/30">TrueMoney Wallet</span>
+                                <h3 class="text-xl font-extrabold font-mono text-amber-300 mt-1">0923282312</h3>
+                                <p class="text-xs text-gray-400">ชื่อบัญชี: นครศิลป์เสมอ (Sinsamer Craft Official)</p>
+                            </div>
+                        </div>
+                        <button onclick="copyToClipboard('0923282312', 'คัดลอกเบอร์ 0923282312 เรียบร้อย!')" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-black font-bold text-xs flex items-center justify-center space-x-2 transition-all">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            <span>คัดลอกเบอร์วอลเล็ท</span>
+                        </button>
+                    </div>
+
+                    <!-- Coin Packages List -->
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-bold text-gray-300 font-kanit flex items-center space-x-2">
+                            <i data-lucide="package" class="w-4 h-4 text-amber-400"></i>
+                            <span>เลือกแพ็กเกจเหรียญ (Sinsamer Coins Package)</span>
+                        </h3>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="packageList">
+                            <!-- Package Item 1 -->
+                            <div onclick="selectPackage(50, 50, 'แพ็กเกจเริ่มต้น')" class="package-card bg-mcCardBg border border-mcBorder p-4 rounded-xl cursor-pointer hover:border-amber-500/60 transition-all flex justify-between items-center" data-amount="50">
+                                <div>
+                                    <p class="text-xs text-gray-400">แพ็กเกจเริ่มต้น</p>
+                                    <p class="text-lg font-bold font-mono text-amber-400">50 Coins</p>
+                                </div>
+                                <span class="text-sm font-bold text-white bg-slate-900 px-3 py-1 rounded-lg border border-slate-700">50 บาท</span>
+                            </div>
+
+                            <!-- Package Item 2 -->
+                            <div onclick="selectPackage(100, 110, 'แพ็กเกจสุดคุ้ม (+10 Bonus)')" class="package-card bg-mcCardBg border border-mcBorder p-4 rounded-xl cursor-pointer hover:border-amber-500/60 transition-all flex justify-between items-center" data-amount="100">
+                                <div>
+                                    <span class="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30">โบนัส +10 Coins</span>
+                                    <p class="text-lg font-bold font-mono text-amber-400">110 Coins</p>
+                                </div>
+                                <span class="text-sm font-bold text-white bg-slate-900 px-3 py-1 rounded-lg border border-slate-700">100 บาท</span>
+                            </div>
+
+                            <!-- Package Item 3 -->
+                            <div onclick="selectPackage(300, 350, 'แพ็กเกจยอดนิยม (+50 Bonus)')" class="package-card bg-mcCardBg border border-mcBorder p-4 rounded-xl cursor-pointer hover:border-amber-500/60 transition-all flex justify-between items-center" data-amount="300">
+                                <div>
+                                    <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">โบนัส +50 Coins</span>
+                                    <p class="text-lg font-bold font-mono text-amber-400">350 Coins</p>
+                                </div>
+                                <span class="text-sm font-bold text-white bg-slate-900 px-3 py-1 rounded-lg border border-slate-700">300 บาท</span>
+                            </div>
+
+                            <!-- Package Item 4 -->
+                            <div onclick="selectPackage(500, 600, 'แพ็กเกจวีไอพี (+100 Bonus)')" class="package-card bg-mcCardBg border border-mcBorder p-4 rounded-xl cursor-pointer hover:border-amber-500/60 transition-all flex justify-between items-center" data-amount="500">
+                                <div>
+                                    <span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">โบนัส +100 Coins</span>
+                                    <p class="text-lg font-bold font-mono text-amber-400">600 Coins</p>
+                                </div>
+                                <span class="text-sm font-bold text-white bg-slate-900 px-3 py-1 rounded-lg border border-slate-700">500 บาท</span>
+                            </div>
+
+                            <!-- Package Item 5 -->
+                            <div onclick="selectPackage(1000, 1300, 'แพ็กเกจมหาเศรษฐี (+300 Bonus)')" class="package-card bg-mcCardBg border border-mcBorder p-4 rounded-xl cursor-pointer hover:border-amber-500/60 transition-all flex justify-between items-center sm:col-span-2" data-amount="1000">
+                                <div>
+                                    <span class="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30">โบนัสสูงสุด +300 Coins</span>
+                                    <p class="text-lg font-bold font-mono text-amber-400">1,300 Coins</p>
+                                </div>
+                                <span class="text-sm font-bold text-amber-300 bg-slate-900 px-3 py-1 rounded-lg border border-amber-500/40">1,000 บาท</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Topup Form Panel (1 Col) -->
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-4">
+                    <h3 class="text-base font-bold font-kanit text-white border-b border-slate-800 pb-2">
+                        แบบฟอร์มแจ้งเติมเงิน
+                    </h3>
+
+                    <form onsubmit="handleTopupSubmit(event)" class="space-y-3">
+                        <div>
+                            <label class="text-xs text-gray-400 mb-1 block">ชื่อตัวละครในเกม (Minecraft Username):</label>
+                            <input type="text" id="topupUser" required placeholder="เช่น Player_Sinsamer" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-gray-400 mb-1 block">แพ็กเกจที่เลือก:</label>
+                            <input type="text" id="selectedPkgText" readonly value="ยังไม่ได้เลือกแพ็กเกจ" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-amber-400 font-bold">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-gray-400 mb-1 block">เลขที่อ้างอิงธุรกรรม / รหัสซอง TrueWallet:</label>
+                            <input type="text" id="topupRef" required placeholder="เช่น 5000012345678" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono">
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-gray-400 mb-1 block">อัปโหลดสลิปโอนเงิน (จำลอง):</label>
+                            <input type="file" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-amber-400 hover:file:bg-slate-700">
+                        </div>
+
+                        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-black font-bold text-xs shadow-lg flex items-center justify-center space-x-2 transition-all">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            <span>ส่งข้อมูลแจ้งเติมเงิน</span>
+                        </button>
+                    </form>
+
+                    <!-- Fast Instant Demo Topup Button -->
+                    <div class="pt-2 border-t border-slate-800">
+                        <button onclick="simInstantTopup()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-gray-300 font-medium text-xs flex items-center justify-center space-x-1.5 border border-slate-700">
+                            <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
+                            <span>[ทดลองระบบ] เติม +300 Coins ทันที</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 3: SOUL SHOP ================= -->
+        <section id="tab-shop" class="tab-content hidden space-y-6">
+            <div class="bg-mcCardBg border border-mcBorder p-6 rounded-2xl flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold font-kanit text-white flex items-center gap-2">
+                        <i data-lucide="shopping-bag" class="w-6 h-6 text-amber-400"></i>
+                        <span>ร้านค้าแลกเปลี่ยนเหรียญ & Soul Token</span>
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">ใช้ Sinsamer Coins หรือคะแนนวิญญาณในการแลกซื้อไอเทมในเกม</p>
+                </div>
+                <div class="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 flex items-center space-x-4">
+                    <span class="text-xs text-gray-400">เหรียญคงเหลือ: <strong id="shopCoinsDisplay" class="text-amber-300 font-mono">0 Coins</strong></span>
+                    <span class="text-xs text-gray-400"> Soul Token: <strong id="shopTokensDisplay" class="text-red-400 font-mono">0 Token</strong></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Shop Item 1 -->
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-4 hover:border-amber-500/40 transition-all flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-2xl">
+                            ⭐
+                        </div>
+                        <h3 class="font-bold text-white text-base font-kanit">1x โทเค็นดวงวิญญาณ (Soul Token)</h3>
+                        <p class="text-xs text-gray-400">ใช้สำหรับคราฟต์ไอเทมระดับสูงในเมืองนครศิลป์เสมอ</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-800 flex justify-between items-center">
+                        <span class="text-sm font-bold text-amber-400 font-mono">50 Coins</span>
+                        <button onclick="buyShopItem('Soul Token', 50, 'token')" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs">
+                            ซื้อไอเทม
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Shop Item 2 -->
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-4 hover:border-amber-500/40 transition-all flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-2xl">
+                            ⚔️
+                        </div>
+                        <h3 class="font-bold text-white text-base font-kanit">ดาบสยบวิญญาณ (Sinsamer Sword)</h3>
+                        <p class="text-xs text-gray-400">เพิ่มพลังโจมตีมอนสเตอร์ในลาน 11x14 เป็น 2 เท่า</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-800 flex justify-between items-center">
+                        <span class="text-sm font-bold text-amber-400 font-mono">150 Coins</span>
+                        <button onclick="buyShopItem('ดาบสยบวิญญาณ', 150, 'item')" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs">
+                            ซื้อไอเทม
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Shop Item 3 -->
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-4 hover:border-amber-500/40 transition-all flex flex-col justify-between">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-2xl">
+                            🛡️
+                        </div>
+                        <h3 class="font-bold text-white text-base font-kanit">ชุดเกราะผู้เฝ้าเมือง (Sinsamer Armor)</h3>
+                        <p class="text-xs text-gray-400">เกราะป้องกันพิเศษสำหรับนักล่ามอนสเตอร์ประจำเมือง</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-800 flex justify-between items-center">
+                        <span class="text-sm font-bold text-amber-400 font-mono">300 Coins</span>
+                        <button onclick="buyShopItem('ชุดเกราะผู้เฝ้าเมือง', 300, 'item')" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs">
+                            ซื้อไอเทม
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 4: ARENA SIMULATOR ================= -->
+        <section id="tab-arena" class="tab-content hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-mcCardBg border border-mcBorder p-5 rounded-2xl">
+                <div>
+                    <h2 class="text-2xl font-bold font-kanit text-white flex items-center gap-2">
+                        <span>จำลองลานปราบมอนสเตอร์ (11x14 Arena Simulator)</span>
+                        <span class="text-xs font-normal text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+                            นครศิลป์เสมอ
+                        </span>
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">ทดสอบกลไกเสกมอนสเตอร์และการวาร์ปหายอัตโนมัติ</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="simEnterArena()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow">
+                        <i data-lucide="footprints" class="w-4 h-4"></i>
+                        <span>1. เข้าลาน (r=9)</span>
+                    </button>
+                    <button onclick="simExitArena()" class="px-3.5 py-2 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                        <span>2. ออกจากลาน (Vanish)</span>
+                    </button>
+                    <button onclick="simCrossBorder()" class="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-black text-xs font-semibold flex items-center space-x-1.5 shadow">
+                        <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                        <span>3. หลุดขอบลาน (rm=8)</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Arena Grid View (2 Cols) -->
+                <div class="lg:col-span-2 bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-4">
+                    <div class="flex items-center justify-between text-xs text-gray-400 pb-2 border-b border-slate-800">
+                        <div class="flex items-center space-x-3">
+                            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-500/30 border border-emerald-500"></span> จุดศูนย์กลาง</span>
+                            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-slate-800 border border-amber-500/30"></span> ลาน 11x14</span>
+                            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-500/20 border border-red-500/40"></span> ขอบเขตกำจัด (rm=8)</span>
+                        </div>
+                        <span id="mobCountStatus" class="font-bold text-amber-400">มอนสเตอร์ในสนาม: 0 ตัว</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <div id="arenaGrid" class="arena-grid min-w-[320px]">
+                            <!-- Generated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scoreboard & Terminal Log -->
+                <div class="space-y-6">
+                    <div class="bg-mcCardBg border border-amber-500/40 rounded-2xl p-5 space-y-3 pulse-gold">
+                        <h3 class="text-sm font-bold text-gray-300 font-kanit flex items-center justify-between">
+                            <span>Scoreboard ประจำเมือง</span>
+                            <i data-lucide="award" class="w-4 h-4 text-amber-400"></i>
+                        </h3>
+                        <div class="bg-slate-950 p-4 rounded-xl text-center border border-slate-800">
+                            <p id="simScoreDisplay" class="text-xl font-extrabold text-amber-400 font-mono">
+                                §6[0] §cดวงวิญญาณ
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-3">
+                        <h3 class="text-sm font-bold text-gray-300 font-kanit flex items-center justify-between">
+                            <span>บันทึกคำสั่ง (Command Log)</span>
+                            <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
+                        </h3>
+                        <div id="arenaLog" class="bg-slate-950 p-3 rounded-xl h-48 overflow-y-auto font-mono text-[11px] space-y-1.5 text-gray-300 border border-slate-800">
+                            <div class="text-gray-500">[SYSTEM] ระบบลานปราบมอนสเตอร์ นครศิลป์เสมอ พร้อมใช้งาน</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 5: COMMAND BLOCK GUIDE ================= -->
+        <section id="tab-commands" class="tab-content hidden space-y-6">
+            <div class="bg-mcCardBg border border-mcBorder p-6 rounded-2xl">
+                <h2 class="text-2xl font-bold font-kanit text-white flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-6 h-6 text-amber-400"></i>
+                    <span>สูตรคำสั่ง Command Block ประจำลาน 11x14</span>
+                </h2>
+                <p class="text-xs text-gray-400 mt-1">คัดลอกคำสั่งไปวางใน Command Block ของ Minecraft Bedrock Edition</p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-white text-sm font-kanit">1. สปอว์นมอนสเตอร์เมื่อคนเข้าลาน (r=9)</h3>
+                        <span class="text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/30">Repeat + Always Active</span>
+                    </div>
+                    <div class="relative bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <code class="text-xs text-emerald-400 font-mono block overflow-x-auto pr-12">
+                            /execute if entity @p[r=9] run summon zombie ~ ~2 ~
+                        </code>
+                        <button onclick="copyToClipboard('/execute if entity @p[r=9] run summon zombie ~ ~2 ~', 'คัดลอกคำสั่งสปอว์นแล้ว!')" class="absolute right-2 top-2 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-300">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-white text-sm font-kanit">2. วาร์ปมอนสเตอร์หายเมื่อคนออกจากลาน (Vanish)</h3>
+                        <span class="text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/30">Repeat + Always Active</span>
+                    </div>
+                    <div class="relative bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <code class="text-xs text-emerald-400 font-mono block overflow-x-auto pr-12">
+                            /execute unless entity @p[r=9] run tp @e[type=zombie,r=15] ~ -100 ~
+                        </code>
+                        <button onclick="copyToClipboard('/execute unless entity @p[r=9] run tp @e[type=zombie,r=15] ~ -100 ~', 'คัดลอกคำสั่งวาร์ปหายแล้ว!')" class="absolute right-2 top-2 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-300">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-mcCardBg border border-mcBorder rounded-2xl p-5 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-white text-sm font-kanit">3. กั้นมอนสเตอร์หลุดขอบลาน (rm=8)</h3>
+                        <span class="text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/30">Repeat + Always Active</span>
+                    </div>
+                    <div class="relative bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <code class="text-xs text-emerald-400 font-mono block overflow-x-auto pr-12">
+                            /tp @e[type=zombie,rm=8,r=15] ~ -100 ~
+                        </code>
+                        <button onclick="copyToClipboard('/tp @e[type=zombie,rm=8,r=15] ~ -100 ~', 'คัดลอกคำสั่งกั้นขอบเขตแล้ว!')" class="absolute right-2 top-2 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-300">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 border border-amber-500 text-white px-4 py-3 rounded-xl shadow-2xl transition-all transform translate-y-20 opacity-0 z-50 flex items-center space-x-2 text-xs">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toastMsg">ข้อความแจ้งเตือน</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-mcDarkSlate border-t border-mcBorder py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-500 space-y-2 font-kanit">
+            <p>Sinsamer Craft (ศิลป์เสมอ คราฟต์) © 2026 - นครศิลป์เสมอ Server Web System</p>
+            <p class="text-[11px] text-gray-600">บัญชีเติมเงิน TrueMoney Wallet: 0923282312</p>
+        </div>
+    </footer>
+
+    <!-- App Logic -->
+    <script>
+        let userCoins = 0;
+        let soulScore = 0;
+        let soulTokens = 0;
+        let selectedPackageData = null;
+        let spawnedMobs = [];
+
+        const GRID_ROWS = 14;
+        const GRID_COLS = 11;
+        const CENTER_ROW = 6;
+        const CENTER_COL = 5;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            buildArenaGrid();
+            updateGlobalDisplays();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-amber-400', 'bg-amber-500/10', 'border', 'border-amber-500/30');
+                btn.classList.add('text-gray-400');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-gray-400');
+                activeBtn.classList.add('text-amber-400', 'bg-amber-500/10', 'border', 'border-amber-500/30');
+            }
+        }
+
+        function updateGlobalDisplays() {
+            document.getElementById('navCoinsDisplay').innerText = `${userCoins} Coins`;
+            document.getElementById('shopCoinsDisplay').innerText = `${userCoins} Coins`;
+            document.getElementById('shopTokensDisplay').innerText = `${soulTokens} Token`;
+            document.getElementById('navSoulDisplay').innerText = `§6[${soulScore}] §cดวงวิญญาณ`;
+            document.getElementById('simScoreDisplay').innerText = `§6[${soulScore}] §cดวงวิญญาณ`;
+            document.getElementById('mobCountStatus').innerText = `มอนสเตอร์ในสนาม: ${spawnedMobs.length} ตัว`;
+        }
+
+        function selectPackage(price, coins, name) {
+            selectedPackageData = { price, coins, name };
+            document.querySelectorAll('.package-card').forEach(card => {
+                card.classList.remove('border-amber-500', 'bg-amber-500/10');
+            });
+
+            const activeCard = document.querySelector(`.package-card[data-amount="${price}"]`);
+            if (activeCard) {
+                activeCard.classList.add('border-amber-500', 'bg-amber-500/10');
+            }
+
+            document.getElementById('selectedPkgText').value = `${name} (${price} บาท - รับ ${coins} Coins)`;
+        }
+
+        function handleTopupSubmit(e) {
+            e.preventDefault();
+            if (!selectedPackageData) {
+                showToast("กรุณาเลือกแพ็กเกจเหรียญก่อนส่งข้อมูล!");
+                return;
+            }
+
+            userCoins += selectedPackageData.coins;
+            updateGlobalDisplays();
+            showToast(`แจ้งเติมเงินสำเร็จ! ได้รับ +${selectedPackageData.coins} Coins`);
+        }
+
+        function simInstantTopup() {
+            userCoins += 300;
+            updateGlobalDisplays();
+            showToast("ทดลองเติมเงินสำเร็จ! ได้รับ +300 Sinsamer Coins");
+        }
+
+        function buyShopItem(itemName, cost, type) {
+            if (userCoins < cost) {
+                showToast("เหรียญไม่เพียงพอ! กรุณาเติมเงิน TrueMoney Wallet");
+                return;
+            }
+
+            userCoins -= cost;
+            if (type === 'token') soulTokens += 1;
+            updateGlobalDisplays();
+            showToast(`ซื้อ ${itemName} สำเร็จเรียบร้อย!`);
+        }
+
+        function copyToClipboard(text, msg) {
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+            showToast(msg);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        /* Arena Simulator Methods */
+        function buildArenaGrid() {
+            const arenaGrid = document.getElementById('arenaGrid');
+            arenaGrid.innerHTML = '';
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.id = `cell-${r}-${c}`;
+                    cell.className = 'grid-cell arena-inner';
+
+                    if (r === CENTER_ROW && c === CENTER_COL) {
+                        cell.classList.add('arena-center');
+                        cell.innerHTML = '<span class="text-[10px]">🟪</span>';
+                    } else if (r === 0 || r === GRID_ROWS - 1 || c === 0 || c === GRID_COLS - 1) {
+                        cell.classList.add('arena-boundary');
+                    }
+                    arenaGrid.appendChild(cell);
+                }
+            }
+        }
+
+        function addLog(msg) {
+            const arenaLog = document.getElementById('arenaLog');
+            const entry = document.createElement('div');
+            entry.innerText = `[${new Date().toLocaleTimeString('th-TH')}] ${msg}`;
+            arenaLog.appendChild(entry);
+            arenaLog.scrollTop = arenaLog.scrollHeight;
+        }
+
+        function simEnterArena() {
+            addLog("🏃 ผู้เล่นก้าวเข้าสู่ลาน 11x14 (r=9) -> สปอว์นมอนสเตอร์");
+            for (let i = 0; i < 3; i++) {
+                const row = Math.floor(Math.random() * (GRID_ROWS - 2)) + 1;
+                const col = Math.floor(Math.random() * (GRID_COLS - 2)) + 1;
+                spawnedMobs.push({ id: Date.now() + Math.random(), row, col });
+            }
+            renderMobs();
+        }
+
+        function simExitArena() {
+            addLog("🏃‍♂️ ผู้เล่นออกจากลาน -> Executing /tp @e ~ -100 ~ (Vanish)");
+            spawnedMobs = [];
+            renderMobs();
+        }
+
+        function simCrossBorder() {
+            if (spawnedMobs.length > 0) {
+                spawnedMobs.pop();
+                addLog("⚠️ มอนสเตอร์เดินหลุดขอบ (rm=8) -> วาร์ปหายลงใต้โลกทันที!");
+                renderMobs();
+            } else {
+                addLog("ℹ️ ไม่พบมอนสเตอร์ในขอบเขตสนาม");
+            }
+        }
+
+        function renderMobs() {
+            document.querySelectorAll('.mob-icon').forEach(el => el.remove());
+            spawnedMobs.forEach(mob => {
+                const cell = document.getElementById(`cell-${mob.row}-${mob.col}`);
+                if (cell) {
+                    const icon = document.createElement('span');
+                    icon.className = 'mob-icon text-base cursor-pointer hover:scale-125 transition-transform';
+                    icon.innerText = '🧟';
+                    icon.onclick = () => {
+                        spawnedMobs = spawnedMobs.filter(m => m.id !== mob.id);
+                        soulScore += 1;
+                        updateGlobalDisplays();
+                        renderMobs();
+                    };
+                    cell.appendChild(icon);
+                }
+            });
+            updateGlobalDisplays();
+        }
+    </script>
+</body>
+</html>
